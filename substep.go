@@ -1,6 +1,4 @@
 // Package substep 是固定步长物理推进：按真实时间累积子步，单帧子步有上限。
-// 缺陷：每帧只推进一步（忽略持续时间）、时间按帧计数、没有单帧子步上限、
-// 被丢弃的时间不记账、残留累积不清理。
 package substep
 
 // FixedStepMs 是固定物理步长。
@@ -17,18 +15,29 @@ type Stepper struct {
 }
 
 // Advance 推进一帧，返回本帧执行的子步数。
-// 缺陷：每帧恒定一步，既不按 frameMs 累积，也不看 MaxSubsteps，丢弃的时间更没记账。
+//
+// 口径：accumulator += frameMs，子步数 = floor(accumulator / FixedStepMs)，
+// 最多 MaxSubsteps 步；跑完把 accumulator 减去已执行步长。超出上限的部分
+// 丢弃并按子步个数累加进 Dropped，对应时间一并从 accumulator 移除，因此
+// accumulator 始终小于一个步长，不会因卡顿无限增长。
 func (s *Stepper) Advance(frameMs float64) int {
-	s.steps++
-	return 1
+	s.accumulator += frameMs
+	substeps := int(s.accumulator / FixedStepMs)
+	ran := substeps
+	if ran > MaxSubsteps {
+		ran = MaxSubsteps
+	}
+	s.dropped += substeps - ran
+	s.accumulator -= float64(substeps) * FixedStepMs
+	s.steps += ran
+	return ran
 }
 
-// Steps 是累计子步数。
+// Steps 是累计子步数，单调不减。
 func (s *Stepper) Steps() int { return s.steps }
 
-// Dropped 是被上限丢弃的子步数。
-// 缺陷：从来没被累加过。
+// Dropped 是被单帧上限丢弃的子步数，单调不减。
 func (s *Stepper) Dropped() int { return s.dropped }
 
-// Accumulator 是当前残留时间。缺陷：没有累加器，恒定返回 0。
+// Accumulator 是当前残留时间（尚未凑成一个子步的零头），恒小于 FixedStepMs。
 func (s *Stepper) Accumulator(nowMs float64) float64 { return s.accumulator }

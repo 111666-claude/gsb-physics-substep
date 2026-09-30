@@ -35,10 +35,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "ran=%d steps=%d dropped=%d\n", ran, stepper.Steps(), stepper.Dropped())
 	case "idle":
 		stepper := &substep.Stepper{}
-		for index := 0; index < 3; index++ {
+		for index := 0; index < 5; index++ {
 			stepper.Advance(10)
 		}
-		fmt.Fprintf(stdout, "steps=%d rest=%.0f\n", stepper.Steps(), stepper.Accumulator(30))
+		fmt.Fprintf(stdout, "steps=%d rest=%.0f\n", stepper.Steps(), stepper.Accumulator(50))
 	default:
 		fmt.Fprintln(stderr, "需要 --sample rate|fps|spike|idle")
 		return 2
